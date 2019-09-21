@@ -9,17 +9,21 @@ import (
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/client"
 	"github.com/sirupsen/logrus"
+	"github.com/wrfly/reglib"
 )
 
+// Config ...
 type Config struct {
 	Path    string
 	Filters map[string]string
 }
 
+// Cli with docker
 type Cli struct {
 	cli client.APIClient
 	f   map[string]string
 
+	registries map[string]reglib.Registry
 	containers map[string]bool
 	m          sync.Mutex
 }
@@ -39,8 +43,8 @@ func New() (*Cli, error) {
 	}
 	logrus.Infof("connect to %v", p)
 	return &Cli{
-		cli: cli,
-		// f:f,
+		cli:        cli,
+		registries: make(map[string]reglib.Registry, 5),
 		containers: make(map[string]bool),
 	}, err
 }
