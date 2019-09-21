@@ -16,12 +16,12 @@ import (
 // Copy a container
 func (c *Cli) Copy(ctx context.Context, cid string) error {
 	// inspect
-	cJSON, err := c.docker.ContainerInspect(ctx, cid)
+	cJSON, err := c.cli.ContainerInspect(ctx, cid)
 	if err != nil {
 		return err
 	}
 
-	resp, err := c.docker.ContainerCreate(ctx,
+	resp, err := c.cli.ContainerCreate(ctx,
 		cJSON.Config,
 		cJSON.HostConfig,
 		&network.NetworkingConfig{},
@@ -30,7 +30,7 @@ func (c *Cli) Copy(ctx context.Context, cid string) error {
 
 	logrus.Infof("create container %s", resp.ID)
 
-	c.docker.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{})
+	c.cli.ContainerStart(ctx, resp.ID, types.ContainerStartOptions{})
 
 	return err
 }

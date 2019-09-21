@@ -5,11 +5,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/sirupsen/logrus"
-
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
 	"github.com/docker/docker/client"
+	"github.com/sirupsen/logrus"
 )
 
 type Config struct {
@@ -18,8 +17,8 @@ type Config struct {
 }
 
 type Cli struct {
-	docker *client.Client
-	f      map[string]string
+	cli client.APIClient
+	f   map[string]string
 
 	containers map[string]bool
 	m          sync.Mutex
@@ -40,7 +39,7 @@ func New() (*Cli, error) {
 	}
 	logrus.Infof("connect to %v", p)
 	return &Cli{
-		docker: cli,
+		cli: cli,
 		// f:f,
 		containers: make(map[string]bool),
 	}, err
@@ -51,7 +50,7 @@ func (c *Cli) listContainers(ctx context.Context) error {
 	for k, v := range c.f {
 		args.Add(k, v)
 	}
-	cs, err := c.docker.ContainerList(ctx, types.ContainerListOptions{
+	cs, err := c.cli.ContainerList(ctx, types.ContainerListOptions{
 		Filters: args,
 	})
 	if err != nil {
