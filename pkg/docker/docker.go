@@ -18,14 +18,21 @@ type Config struct {
 	Filters map[string]string
 }
 
+type ContainerSpec struct {
+	ID    string
+	Image string
+}
+
 // Cli with docker
 type Cli struct {
 	cli client.APIClient
-	f   map[string]string
+
+	f map[string]string // list filter
+	m sync.Mutex
 
 	registries map[string]reglib.Registry
-	containers map[string]bool
-	m          sync.Mutex
+
+	containerChan chan ContainerSpec
 }
 
 // New docker cli
@@ -43,13 +50,13 @@ func New() (*Cli, error) {
 	}
 	logrus.Infof("connect to %v", p)
 	return &Cli{
-		cli:        cli,
-		registries: make(map[string]reglib.Registry, 5),
-		containers: make(map[string]bool),
+		cli:           cli,
+		registries:    make(map[string]reglib.Registry),
+		containerChan: make(chan ContainerSpec, 100),
 	}, err
 }
 
-func (c *Cli) listContainers(ctx context.Context) error {
+func (c *Cli) ListContainers(ctx context.Context) error {
 	args := filters.NewArgs()
 	for k, v := range c.f {
 		args.Add(k, v)
@@ -65,9 +72,19 @@ func (c *Cli) listContainers(ctx context.Context) error {
 	for _, container := range cs {
 		logrus.Infof("found container: %s, image: %s",
 			container.ID, container.Image)
-		c.containers[container.ID] = true
+		select {
+		case c.containerChan <- ContainerSpec{
+			ID:    container.ID,
+			Image: container.Image,
+		}:
+		default:
+		}
 	}
 	c.m.Unlock()
 
 	return nil
+}
+
+func (c *Cli) Containers() chan ContainerSpec {
+	return c.containerChan
 }

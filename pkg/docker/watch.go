@@ -2,8 +2,9 @@ package docker
 
 import (
 	"context"
+	"crypto/md5"
+	"encoding/hex"
 	"fmt"
-	"net/url"
 	"strings"
 	"time"
 
@@ -11,7 +12,7 @@ import (
 	"github.com/wrfly/reglib"
 )
 
-func (c *Cli) watchImageChange(ctx context.Context, image string) (<-chan string, error) {
+func (c *Cli) WatchImageChange(ctx context.Context, image string) (<-chan string, error) {
 	if !strings.Contains(image, ":") {
 		image += ":latest"
 	}
@@ -19,8 +20,6 @@ func (c *Cli) watchImageChange(ctx context.Context, image string) (<-chan string
 	registryAddr := getDomain(image)
 	logrus.Debugf("reg: %s, image: %s", registryAddr, image)
 
-	c.m.Lock()
-	defer c.m.Unlock()
 	registry, exist := c.registries[registryAddr]
 	if !exist {
 		newRegst, err := reglib.NewFromConfigFile(registryAddr)
@@ -29,16 +28,25 @@ func (c *Cli) watchImageChange(ctx context.Context, image string) (<-chan string
 		}
 		c.registries[registryAddr] = newRegst
 		registry = newRegst
+		logrus.Debugf("set %s registry client", registryAddr)
 	}
 
 	watchC := make(chan string)
 
 	go func() {
 		defer close(watchC)
+		index := strings.Index(image, "/")
+		image = image[index+1:]
+		var (
+			repo = image
+			tag  = "latest"
+		)
+		if strings.Contains(image, ":") {
+			repo = strings.Split(image, ":")[0]
+			tag = strings.Split(image, ":")[1]
+		}
 
-		imageURL, _ := url.Parse(image)
-		repo := strings.Split(imageURL.Path, ":")[0]
-		tag := strings.Split(imageURL.Path, ":")[1]
+		logrus.Debugf("watch image: %s:%s", repo, tag)
 		img, err := registry.Image(ctx, repo, tag)
 		if err != nil {
 			logrus.Errorf("watch image error: %s", err)
@@ -70,6 +78,15 @@ func (c *Cli) watchImageChange(ctx context.Context, image string) (<-chan string
 }
 
 func imageIdentifier(img *reglib.Image) string {
-	return fmt.Sprintf("%s %s", img.Size(),
-		img.Created().Format(time.RFC3339))
+	x := ""
+	for _, hist := range img.History() {
+		x += hist.Config.Image
+	}
+	return fmt.Sprintf("%s %s", img.Size(), hash(x))
+}
+
+func hash(str string) string {
+	m := md5.New()
+	m.Write([]byte(str))
+	return hex.EncodeToString(m.Sum(nil))
 }

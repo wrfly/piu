@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"os"
 
 	"gopkg.in/urfave/cli.v2"
@@ -28,19 +27,12 @@ func main() {
 				Aliases: []string{"v"},
 				Usage:   "print the version",
 			},
+			&cli.BoolFlag{
+				Name: "debug",
+			},
 		},
 		CustomAppHelpTemplate: helpTemplate,
-		Action: func(c *cli.Context) error {
-			if c.NumFlags() == 0 {
-				return cli.ShowAppHelp(c)
-			}
-			if c.Bool("version") {
-				fmt.Println(versionInfo)
-				return nil
-			}
-
-			return nil
-		},
+		Action:                run,
 	}
 
 	app.Run(os.Args)

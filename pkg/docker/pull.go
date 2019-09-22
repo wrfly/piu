@@ -4,11 +4,12 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"io"
 
 	"github.com/docker/docker/api/types"
 )
 
-func (c *Cli) pullImage(ctx context.Context, image string) error {
+func (c *Cli) PullImage(ctx context.Context, image string) error {
 
 	rc, err := c.cli.ImagePull(ctx, image, types.ImagePullOptions{
 		RegistryAuth: getAuth(image),
@@ -22,6 +23,9 @@ func (c *Cli) pullImage(ctx context.Context, image string) error {
 	for {
 		line, err := ioReader.ReadString('\n')
 		if err != nil {
+			if err == io.EOF {
+				return nil
+			}
 			return err
 		}
 		fmt.Print(line)

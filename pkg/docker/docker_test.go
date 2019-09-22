@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 	"time"
+
+	"github.com/sirupsen/logrus"
 )
 
 func TestDocker(t *testing.T) {
@@ -13,11 +15,10 @@ func TestDocker(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	cli.listContainers(ctx)
+	cli.ListContainers(ctx)
 
-	for cid := range cli.containers {
-		cli.Copy(ctx, cid)
-		break
+	for container := range cli.containerChan {
+		logrus.Infof("found container %s @%s", container.ID, container.Image)
 	}
 }
 

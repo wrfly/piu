@@ -17,7 +17,7 @@ func TestWatchImageChange(t *testing.T) {
 
 	image := "wrfly/hello-world"
 
-	changed, err := cli.watchImageChange(context.Background(), image)
+	changed, err := cli.WatchImageChange(context.Background(), image)
 	if err != nil {
 		t.Fatal(err)
 	}
