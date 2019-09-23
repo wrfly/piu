@@ -17,7 +17,15 @@ func (c *Cli) WatchImageChange(ctx context.Context, image string) (<-chan string
 		image += ":latest"
 	}
 
-	registryAddr := getDomain(image)
+	registryAddr, repo, tag := getMeta(image)
+
+	// docker api starts with index.docker.io
+	// but pull image must start with docker.io
+	// f**k docker
+	if registryAddr == "docker.io" {
+		registryAddr = "index.docker.io"
+	}
+
 	logrus.Debugf("reg: %s, image: %s", registryAddr, image)
 
 	c.m.RLock()
@@ -39,22 +47,6 @@ func (c *Cli) WatchImageChange(ctx context.Context, image string) (<-chan string
 
 	go func() {
 		defer close(watchC)
-
-		if registryAddr == "index.docker.io" {
-			if !strings.Contains(image, "/") {
-				image = "library/" + image
-			}
-		}
-		image = strings.TrimPrefix(image, registryAddr+"/")
-
-		var (
-			repo = image
-			tag  = "latest"
-		)
-		if strings.Contains(image, ":") {
-			repo = strings.Split(image, ":")[0]
-			tag = strings.Split(image, ":")[1]
-		}
 
 		logrus.Debugf("watch image: %s:%s", repo, tag)
 		img, err := registry.Image(ctx, repo, tag)

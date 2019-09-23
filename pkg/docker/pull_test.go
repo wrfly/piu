@@ -15,7 +15,7 @@ func TestPull(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
 
-	err = cli.PullImage(ctx, "docker.io/library/alpine:3.7")
+	err = cli.PullImage(ctx, "docker.io/wrfly/piu:echo")
 	if err != nil && err != io.EOF {
 		t.Errorf("err: %s", err)
 	}

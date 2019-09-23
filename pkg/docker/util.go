@@ -23,7 +23,23 @@ func getAuth(image string) string {
 func getDomain(image string) string {
 	domain := strings.Split(image, "/")[0]
 	if !strings.Contains(domain, ".") {
-		domain = "index.docker.io"
+		domain = "docker.io"
 	}
 	return domain
+}
+
+func getMeta(image string) (domain, repo, tag string) {
+	domain = getDomain(image)
+	if domain == "docker.io" {
+		if !strings.Contains(image, "/") {
+			image = "library/" + image
+		}
+	}
+	image = strings.TrimPrefix(image, domain+"/")
+	tag = "latest"
+	if strings.Contains(image, ":") {
+		repo = strings.Split(image, ":")[0]
+		tag = strings.Split(image, ":")[1]
+	}
+	return
 }
