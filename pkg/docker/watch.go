@@ -22,12 +22,12 @@ func (c *Cli) WatchImageChange(ctx context.Context, image string) (<-chan string
 
 	registry, exist := c.registries[registryAddr]
 	if !exist {
-		newRegst, err := reglib.NewFromConfigFile(registryAddr)
+		newRegistry, err := reglib.NewFromConfigFile(registryAddr)
 		if err != nil {
 			return nil, err
 		}
-		c.registries[registryAddr] = newRegst
-		registry = newRegst
+		c.registries[registryAddr] = newRegistry
+		registry = newRegistry
 		logrus.Debugf("set %s registry client", registryAddr)
 	}
 
@@ -35,6 +35,12 @@ func (c *Cli) WatchImageChange(ctx context.Context, image string) (<-chan string
 
 	go func() {
 		defer close(watchC)
+
+		var library bool
+		if registryAddr == "index.docker.io" {
+			library = true
+		}
+
 		index := strings.Index(image, "/")
 		image = image[index+1:]
 		var (
@@ -44,6 +50,10 @@ func (c *Cli) WatchImageChange(ctx context.Context, image string) (<-chan string
 		if strings.Contains(image, ":") {
 			repo = strings.Split(image, ":")[0]
 			tag = strings.Split(image, ":")[1]
+		}
+
+		if library {
+			repo = "library/" + repo
 		}
 
 		logrus.Debugf("watch image: %s:%s", repo, tag)

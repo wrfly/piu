@@ -3,14 +3,18 @@ package docker
 import (
 	"bufio"
 	"context"
-	"fmt"
 	"io"
 
 	"github.com/docker/docker/api/types"
+	"github.com/sirupsen/logrus"
 )
 
 func (c *Cli) PullImage(ctx context.Context, image string) error {
+	if c.ctx == nil {
+		return context.Canceled
+	}
 
+	logrus.Infof("pulling image %s", image)
 	rc, err := c.cli.ImagePull(ctx, image, types.ImagePullOptions{
 		RegistryAuth: getAuth(image),
 	})
@@ -22,12 +26,11 @@ func (c *Cli) PullImage(ctx context.Context, image string) error {
 	ioReader := bufio.NewReader(rc)
 	for {
 		line, err := ioReader.ReadString('\n')
-		if err != nil {
-			if err == io.EOF {
-				return nil
-			}
+		if err == io.EOF {
+			return nil
+		} else if err != nil {
 			return err
 		}
-		fmt.Print(line)
+		logrus.Debugf("pull image %s: %s", image, line)
 	}
 }

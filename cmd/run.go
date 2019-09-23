@@ -21,23 +21,33 @@ func run(c *cli.Context) error {
 		logrus.SetLevel(logrus.DebugLevel)
 	}
 
-	cli, err := docker.New()
-	if err != nil {
-		return err
-	}
-
 	ctx, cancel := context.WithCancel(context.Background())
 	errChan := make(chan error)
 
+	cli, err := docker.New(ctx)
+	if err != nil {
+		cancel()
+		logrus.Fatal("create docker client error: %s", err)
+	}
+
+	containerCancelFunc := make(map[string]context.CancelFunc)
+
 	// replace all new create containers with new image
 	go func() {
-		// FIXME: containerChan not closed, goroutine leak
 		for container := range cli.Containers() {
+			// cancel the old watch goroutine
+			if container.Action == docker.Die {
+				if cancel, ok := containerCancelFunc[container.ID]; ok {
+					logrus.Infof("container %s stopped, stop watching image change", container.ID)
+					cancel()
+				}
+				return
+			}
 			go func(c docker.ContainerSpec) {
 				cCtx, cancel := context.WithCancel(ctx)
 				defer cancel()
+				containerCancelFunc[c.ID] = cancel
 
-				// FIXME: if container stopped, cancel this goroutine
 				changed, err := cli.WatchImageChange(cCtx, c.Image)
 				if err != nil {
 					logrus.Errorf("watch image [%s] change error: %s", c.Image, err)
@@ -57,22 +67,23 @@ func run(c *cli.Context) error {
 						logrus.Warnf("recreate container %s err: %s", c.ID, err)
 					}
 				}
+				logrus.Infof("stop watching image %s", c.Image)
 			}(container)
 		}
 	}()
 
 	// watch container creation
 	go func() {
-		if err := cli.WatchStartEvents(ctx); err != nil {
+		if err := cli.WatchEvents(); err != nil {
 			errChan <- err
 			return
 		}
 	}()
 
 	// list all the containers
-	if err := cli.ListContainers(ctx); err != nil {
+	if err := cli.ListContainers(); err != nil {
 		cancel()
-		return err
+		logrus.Fatalf("list containers error: %s", err)
 	}
 
 	return watchSig(cancel, errChan)
@@ -86,8 +97,10 @@ func watchSig(cancel context.CancelFunc, errC chan error) error {
 
 	select {
 	case err := <-errC:
+		logrus.Fatal("runtime error: %s", err)
 		return err
-	case <-sigC:
+	case s := <-sigC:
+		logrus.Warnf("sig %s received, exit", s)
 		return nil
 	}
 }

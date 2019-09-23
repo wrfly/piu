@@ -10,7 +10,7 @@ import (
 func TestWatchImageChange(t *testing.T) {
 	logrus.SetLevel(logrus.DebugLevel)
 
-	cli, err := New()
+	cli, err := New(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}

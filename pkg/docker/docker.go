@@ -12,20 +12,10 @@ import (
 	"github.com/wrfly/reglib"
 )
 
-// Config ...
-type Config struct {
-	Path    string
-	Filters map[string]string
-}
-
-type ContainerSpec struct {
-	ID    string
-	Image string
-}
-
 // Cli with docker
 type Cli struct {
 	cli client.APIClient
+	ctx context.Context
 
 	f map[string]string // list filter
 	m sync.Mutex
@@ -36,32 +26,47 @@ type Cli struct {
 }
 
 // New docker cli
-func New() (*Cli, error) {
+func New(ctx context.Context) (*Cli, error) {
 	cli, err := client.NewEnvClient()
 	if err != nil {
 		return nil, err
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	cctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	p, err := cli.Ping(ctx)
+	p, err := cli.Ping(cctx)
 	if err != nil {
 		return nil, err
 	}
-	logrus.Infof("connect to %v", p)
-	return &Cli{
+	logrus.Infof("connect to docker %s", p.APIVersion)
+
+	x := &Cli{
+		ctx:           ctx,
 		cli:           cli,
 		registries:    make(map[string]reglib.Registry),
 		containerChan: make(chan ContainerSpec, 100),
-	}, err
+	}
+
+	go func() {
+		<-ctx.Done()
+		cli.Close()
+		close(x.containerChan)
+	}()
+
+	return x, err
 }
 
-func (c *Cli) ListContainers(ctx context.Context) error {
+// ListContainers and put into container channel
+func (c *Cli) ListContainers() error {
+	if c.ctx == nil {
+		return context.Canceled
+	}
+
 	args := filters.NewArgs()
 	for k, v := range c.f {
 		args.Add(k, v)
 	}
-	cs, err := c.cli.ContainerList(ctx, types.ContainerListOptions{
+	cs, err := c.cli.ContainerList(c.ctx, types.ContainerListOptions{
 		Filters: args,
 	})
 	if err != nil {
@@ -74,8 +79,9 @@ func (c *Cli) ListContainers(ctx context.Context) error {
 			container.ID, container.Image)
 		select {
 		case c.containerChan <- ContainerSpec{
-			ID:    container.ID,
-			Image: container.Image,
+			ID:     container.ID,
+			Image:  container.Image,
+			Action: Start,
 		}:
 		default:
 		}
@@ -85,6 +91,7 @@ func (c *Cli) ListContainers(ctx context.Context) error {
 	return nil
 }
 
+// Containers channel
 func (c *Cli) Containers() chan ContainerSpec {
 	return c.containerChan
 }

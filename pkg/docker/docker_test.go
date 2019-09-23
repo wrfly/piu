@@ -9,13 +9,17 @@ import (
 )
 
 func TestDocker(t *testing.T) {
-	cli, err := New()
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
+	defer cancel()
+
+	cli, err := New(ctx)
 	if err != nil {
 		t.Fatal(err)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
-	cli.ListContainers(ctx)
+
+	if err := cli.ListContainers(); err != nil {
+		t.Fatal(err)
+	}
 
 	for container := range cli.containerChan {
 		logrus.Infof("found container %s @%s", container.ID, container.Image)

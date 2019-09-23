@@ -1,16 +1,17 @@
 package docker
 
 import (
-	"context"
-
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/filters"
+	"github.com/sirupsen/logrus"
 )
 
-func (c *Cli) WatchStartEvents(ctx context.Context) error {
+// WatchEvents (start and die)
+func (c *Cli) WatchEvents() error {
 	startFilter := filters.NewArgs()
 	startFilter.Add("event", "start")
-	msgC, errC := c.cli.Events(ctx, types.EventsOptions{
+	startFilter.Add("event", "die")
+	msgC, errC := c.cli.Events(c.ctx, types.EventsOptions{
 		Filters: startFilter,
 	})
 	go func() {
@@ -19,10 +20,12 @@ func (c *Cli) WatchStartEvents(ctx context.Context) error {
 			image := msg.Actor.Attributes["image"]
 			select {
 			case c.containerChan <- ContainerSpec{
-				ID:    containerID,
-				Image: image,
+				ID:     containerID,
+				Image:  image,
+				Action: Action(msg.Action),
 			}:
 			default:
+				logrus.Warnf("container events %v missed", msg)
 			}
 		}
 	}()

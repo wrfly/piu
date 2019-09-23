@@ -8,7 +8,7 @@ import (
 )
 
 func TestPull(t *testing.T) {
-	cli, err := New()
+	cli, err := New(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
