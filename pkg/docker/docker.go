@@ -18,7 +18,7 @@ type Cli struct {
 	ctx context.Context
 
 	f map[string]string // list filter
-	m sync.Mutex
+	m sync.RWMutex
 
 	registries map[string]reglib.Registry
 

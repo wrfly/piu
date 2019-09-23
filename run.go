@@ -38,10 +38,10 @@ func run(c *cli.Context) error {
 			// cancel the old watch goroutine
 			if container.Action == docker.Die {
 				if cancel, ok := containerCancelFunc[container.ID]; ok {
-					logrus.Infof("container %s stopped, stop watching image change", container.ID)
+					logrus.Infof("container %s stopped", container.ID)
 					cancel()
 				}
-				return
+				continue
 			}
 			go func(c docker.ContainerSpec) {
 				cCtx, cancel := context.WithCancel(ctx)

@@ -20,13 +20,17 @@ func (c *Cli) WatchImageChange(ctx context.Context, image string) (<-chan string
 	registryAddr := getDomain(image)
 	logrus.Debugf("reg: %s, image: %s", registryAddr, image)
 
+	c.m.RLock()
 	registry, exist := c.registries[registryAddr]
+	c.m.RUnlock()
 	if !exist {
 		newRegistry, err := reglib.NewFromConfigFile(registryAddr)
 		if err != nil {
 			return nil, err
 		}
+		c.m.Lock()
 		c.registries[registryAddr] = newRegistry
+		c.m.Unlock()
 		registry = newRegistry
 		logrus.Debugf("set %s registry client", registryAddr)
 	}
@@ -36,13 +40,13 @@ func (c *Cli) WatchImageChange(ctx context.Context, image string) (<-chan string
 	go func() {
 		defer close(watchC)
 
-		var library bool
 		if registryAddr == "index.docker.io" {
-			library = true
+			if !strings.Contains(image, "/") {
+				image = "library/" + image
+			}
 		}
+		image = strings.TrimPrefix(image, registryAddr+"/")
 
-		index := strings.Index(image, "/")
-		image = image[index+1:]
 		var (
 			repo = image
 			tag  = "latest"
@@ -52,14 +56,10 @@ func (c *Cli) WatchImageChange(ctx context.Context, image string) (<-chan string
 			tag = strings.Split(image, ":")[1]
 		}
 
-		if library {
-			repo = "library/" + repo
-		}
-
 		logrus.Debugf("watch image: %s:%s", repo, tag)
 		img, err := registry.Image(ctx, repo, tag)
 		if err != nil {
-			logrus.Errorf("watch image error: %s", err)
+			logrus.Errorf("initial watch image %s error: %s", image, err)
 			return
 		}
 
@@ -69,7 +69,7 @@ func (c *Cli) WatchImageChange(ctx context.Context, image string) (<-chan string
 			img, err := registry.Image(ctx, repo, tag)
 			if err != nil {
 				if ctx.Err() != context.Canceled {
-					logrus.Errorf("watch image error: %s", err)
+					logrus.Errorf("watch image %s error: %s", image, err)
 				}
 				return
 			}

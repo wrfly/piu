@@ -1,16 +1,16 @@
 NAME = piu
 
-MAIN := ./cmd/
+MAIN := ./
 BINARY := bin/$(NAME)
 
-Version := $(shell cat Version)
+VERSION := $(shell cat VERSION)
 COMMIT := $(shell git rev-parse --short HEAD)
 Branch := $(shell git rev-parse --abbrev-ref HEAD)
 Builder := $(shell whoami)
 BuildAt := $(shell date +%F.%T)
 
 CTIMEVAR = -X main.Commit=$(COMMIT) \
-        -X main.Version=$(Version) \
+        -X main.Version=$(VERSION) \
         -X main.Branch=$(Branch) \
         -X main.Builder=$(Builder) \
         -X main.BuildAt=$(BuildAt)
@@ -28,18 +28,11 @@ build:
 test:
 	go test -v --cover ./...
 
-.PHONY: dev
-dev: clean build
-	ENV_DEBUG=true ENV_SERVER_PPROF=true $(BINARY)
-
-.PHONY: pprof
-pprof: clean build
-	ENV_SERVER_PPROF=true $(BINARY)
-
 
 .PHONY: docker-image docker-base push-build-base
 docker-image:
 	docker build \
+		--build-arg BINARY=piu \
 		-t wrfly/$(NAME) \
 		-t wrfly/$(NAME):develop \
 		-t wrfly/$(NAME):$(VERSION) \
