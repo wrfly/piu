@@ -38,11 +38,12 @@ func run(c *cli.Context) error {
 			// cancel the old watch goroutine
 			if container.Action == docker.Die {
 				if cancel, ok := containerCancelFunc[container.ID]; ok {
-					logrus.Infof("container %s stopped", container.ID)
+					logrus.Infof("container %s stopped", container.ID[:12])
 					cancel()
 				}
 				continue
 			}
+			logrus.Infof("found container: %s, image: %s", container.ID[:12], container.Image)
 			go func(c docker.ContainerSpec) {
 				cCtx, cancel := context.WithCancel(ctx)
 				defer cancel()
@@ -54,7 +55,7 @@ func run(c *cli.Context) error {
 					return
 				}
 				for change := range changed {
-					logrus.Infof("container %s changed: %s", c.ID, change)
+					logrus.Infof("container %s changed: %s", c.ID[:12], change)
 
 					// pull the latest image
 					if err := cli.PullImage(cCtx, c.Image); err != nil {
@@ -64,7 +65,7 @@ func run(c *cli.Context) error {
 
 					// re create the container
 					if err := cli.ReCreate(ctx, c.ID); err != nil {
-						logrus.Warnf("recreate container %s err: %s", c.ID, err)
+						logrus.Warnf("recreate container %s err: %s", c.ID[:12], err)
 					}
 				}
 				logrus.Infof("stop watching image %s", c.Image)

@@ -75,8 +75,10 @@ func (c *Cli) ListContainers() error {
 
 	c.m.Lock()
 	for _, container := range cs {
-		logrus.Infof("found container: %s, image: %s",
-			container.ID, container.Image)
+		// NOTE: container can be restarted only got this label
+		if container.Labels["piu"] == "" {
+			continue
+		}
 		select {
 		case c.containerChan <- ContainerSpec{
 			ID:     container.ID,

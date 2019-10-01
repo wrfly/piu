@@ -16,11 +16,18 @@ func (c *Cli) WatchEvents() error {
 	})
 	go func() {
 		for msg := range msgC {
-			containerID := msg.ID
+			containerInfo, err := c.cli.ContainerInspect(c.ctx, msg.ID)
+			if err != nil {
+				logrus.Errorf("inspect container error: %s", err)
+				continue
+			}
+			if containerInfo.Config.Labels["piu"] == "" {
+				continue
+			}
 			image := msg.Actor.Attributes["image"]
 			select {
 			case c.containerChan <- ContainerSpec{
-				ID:     containerID,
+				ID:     msg.ID,
 				Image:  image,
 				Action: Action(msg.Action),
 			}:

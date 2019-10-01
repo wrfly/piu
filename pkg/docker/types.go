@@ -2,8 +2,8 @@ package docker
 
 // Config ...
 type Config struct {
-	Path    string
-	Filters map[string]string
+	Path    string            // docker sock path
+	Filters map[string]string // docker ls filters
 }
 
 // Action of the container
